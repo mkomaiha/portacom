@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "winmd2py"
+version = "0.1.0"
+description = "Generate ctypes bindings for classic COM interfaces from .winmd metadata, in pure Python"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Mahmoud Komaiha", email = "mkomaiha@umich.edu" }]
+requires-python = ">=3.10"
+dependencies = []
+keywords = ["com", "ctypes", "winmd", "win32metadata", "bindings", "code generator"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Topic :: Software Development :: Code Generators",
+]
+
+[project.optional-dependencies]
+runtime = ["portacom>=0.1,<0.2"]
+
+[project.urls]
+Homepage = "https://github.com/mkomaiha/portacom"
+Repository = "https://github.com/mkomaiha/portacom"
+Issues = "https://github.com/mkomaiha/portacom/issues"
+Changelog = "https://github.com/mkomaiha/portacom/blob/main/CHANGELOG.md"
+
+[project.scripts]
+winmd2py = "winmd2py.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

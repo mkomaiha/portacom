@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:  # release.yml runs this before publishing
+
+env:
+  WIN32METADATA_VERSION: 71.0.45-preview
+  DXC_RELEASE: v1.9.2609
+  DXC_LINUX: linux_dxc_2026_09_28.x86_x64.tar.gz
+  DXC_WINDOWS: dxc_2026_09_29.zip
+  # MiniCOM's C++ test classes (CtypesTests/ExampleLib), from its python-bindings branch
+  MINICOM_REPO: https://github.com/mkomaiha/MiniCOM
+  MINICOM_REF: 249b3a0a03964cc1e9e17b20d90fdd9116d5e598
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff
+      - run: ruff format --check .
+      - run: ruff check .
+
+  # Generates every namespace of Windows.Win32.winmd and imports each module.
+  generator-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install ./runtime ./generator
+
+      - name: Get Windows.Win32.winmd
+        run: |
+          dir="$RUNNER_TEMP/winmd"
+          mkdir -p "$dir"
+          curl -sSfL -o "$dir/metadata.zip" "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.win32metadata/$WIN32METADATA_VERSION/microsoft.windows.sdk.win32metadata.$WIN32METADATA_VERSION.nupkg"
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); z.extract('Windows.Win32.winmd', sys.argv[2]); z.extract('Microsoft.Direct3D.D3D12.winmd', sys.argv[2])" "$dir/metadata.zip" "$dir"
+          echo "WIN32_WINMD=$dir/Windows.Win32.winmd" >> "$GITHUB_ENV"
+          echo "D3D12_WINMD=$dir/Microsoft.Direct3D.D3D12.winmd" >> "$GITHUB_ENV"
+
+      - name: Generate all namespaces
+        run: winmd2py "$WIN32_WINMD" -o "$RUNNER_TEMP/gen/win32_bindings" -q
+
+      - name: Generate D3D12 with --ref
+        run: winmd2py "$D3D12_WINMD" --ref "$WIN32_WINMD" -o "$RUNNER_TEMP/gen/d3d12_bindings" -q
+
+      - name: Import every module
+        run: |
+          python - "$RUNNER_TEMP/gen" <<'PY'
+          import importlib, pkgutil, sys
+          sys.path.insert(0, sys.argv[1])
+          import win32_bindings
+          names = [m.name for m in pkgutil.walk_packages(win32_bindings.__path__, "win32_bindings.", onerror=lambda name: None)]
+          failed = {}
+          for name in names:
+              try:
+                  importlib.import_module(name)
+              except Exception as e:
+                  failed[name] = f"{type(e).__name__}: {e}"
+          for name, error in failed.items():
+              print(f"::error::{name}: {error}")
+          print(f"imported {len(names) - len(failed)} of {len(names)} modules")
+          sys.exit(1 if failed else 0)
+          PY
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.10" }
+          - { os: ubuntu-latest, python: "3.11" }
+          - { os: ubuntu-latest, python: "3.12" }
+          - { os: ubuntu-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.13" }
+          - { os: windows-latest, python: "3.13", architecture: x86 }  # 32-bit: stdcall vtables, x86 layouts
+          - { os: macos-latest, python: "3.13" }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          architecture: ${{ matrix.architecture }}  # empty: the runner's own
+
+      - name: Install the packages
+        run: python -m pip install ./runtime ./generator ./dxc pytest
+
+      - name: Get Windows.Win32.winmd
+        run: |
+          dir="$RUNNER_TEMP/winmd"
+          mkdir -p "$dir"
+          curl -sSfL -o "$dir/metadata.zip" "https://api.nuget.org/v3-flatcontainer/microsoft.windows.sdk.win32metadata/$WIN32METADATA_VERSION/microsoft.windows.sdk.win32metadata.$WIN32METADATA_VERSION.nupkg"
+          python -c "import sys, zipfile; z = zipfile.ZipFile(sys.argv[1]); z.extract('Windows.Win32.winmd', sys.argv[2]); z.extract('Microsoft.Direct3D.D3D12.winmd', sys.argv[2])" "$dir/metadata.zip" "$dir"
+          echo "WIN32_WINMD=$dir/Windows.Win32.winmd" >> "$GITHUB_ENV"
+          echo "D3D12_WINMD=$dir/Microsoft.Direct3D.D3D12.winmd" >> "$GITHUB_ENV"
+
+      - name: Get DXC (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          dir="$RUNNER_TEMP/dxc"
+          mkdir -p "$dir"
+          curl -sSfL "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$DXC_RELEASE/$DXC_LINUX" | tar -xz -C "$dir"
+          echo "DXC_LIBRARY=$dir/lib/libdxcompiler.so" >> "$GITHUB_ENV"
+
+      - name: Get DXC (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dir="$RUNNER_TEMP/dxc"
+          mkdir -p "$dir"
+          curl -sSfL -o "$dir/dxc.zip" "https://github.com/microsoft/DirectXShaderCompiler/releases/download/$DXC_RELEASE/$DXC_WINDOWS"
+          python -c "import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$dir/dxc.zip" "$dir"
+          echo "DXC_LIBRARY=$dir/bin/${{ matrix.architecture || 'x64' }}/dxcompiler.dll" >> "$GITHUB_ENV"
+
+      - name: Build MiniCOM's test library (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then sudo apt-get update -q && sudo apt-get install -yq libgtest-dev pybind11-dev; fi
+          if [ "$RUNNER_OS" = macOS ]; then brew install googletest pybind11; fi
+          git clone -q "$MINICOM_REPO" "$RUNNER_TEMP/minicom"
+          git -C "$RUNNER_TEMP/minicom" checkout -q "$MINICOM_REF"
+          cmake -S "$RUNNER_TEMP/minicom" -B "$RUNNER_TEMP/minicom/build" -DCMAKE_BUILD_TYPE=Release -DPython_EXECUTABLE="$(command -v python)"
+          cmake --build "$RUNNER_TEMP/minicom/build" --target ExampleLib -j 4
+          lib=$(find "$RUNNER_TEMP/minicom/build" -name 'libExampleLib.so' -o -name 'libExampleLib.dylib' | head -1)
+          echo "MINICOM_LIBRARY=$lib" >> "$GITHUB_ENV"
+          nm -g "$lib" | grep CoCreateInstance
+
+      - name: Test
+        run: python -m pytest -q -rs tests

@@ -1,0 +1,16 @@
+line-length = 120
+target-version = "py310"
+extend-exclude = ["dxc/src/portacom_dxc/_bindings", "build"]
+
+[lint]
+select = ["E", "F", "W", "B", "I", "UP", "SIM"]
+ignore = [
+    "B904",    # raise ... from inside except: the original context is useful here
+    "SIM102",  # nested ifs read better in a few type dispatches
+    "SIM108",  # ternaries are not always clearer
+    "E501",    # the formatter handles line length
+    "SIM112",  # Windows environment variables keep their documented spelling (ProgramFiles(x86))
+]
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401"]
