@@ -3,8 +3,9 @@ name: Release
 # Publishes portacom, winmd2py and portacom-dxc to PyPI when a GitHub release
 # is published, after lint and the tests pass. The release tag (vX.Y.Z) must
 # match the version of every package. Uses PyPI trusted publishing: each
-# project must first list this repository, workflow release.yml and
-# environment "pypi" as a trusted publisher.
+# project must first list this repository, workflow release.yml and its own
+# environment (pypi-portacom, pypi-winmd2py, pypi-portacom-dxc) as a trusted
+# publisher; PyPI allows one pending publisher per environment.
 
 on:
   release:
@@ -45,9 +46,9 @@ jobs:
 
       - run: pip install build
       - run: |
-          for package in runtime generator dxc; do
-            python -m build --outdir dist "$package"
-          done
+          python -m build --outdir dist/portacom runtime
+          python -m build --outdir dist/winmd2py generator
+          python -m build --outdir dist/portacom-dxc dxc
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: dist
@@ -55,8 +56,12 @@ jobs:
 
   publish:
     needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [portacom, winmd2py, portacom-dxc]
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: pypi-${{ matrix.package }}
     permissions:
       id-token: write
     steps:
@@ -66,5 +71,6 @@ jobs:
           path: dist
       - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3 (release/v1)
         with:
+          packages-dir: dist/${{ matrix.package }}
           # files already on PyPI are skipped, so a re-run after a partial upload succeeds
           skip-existing: true
