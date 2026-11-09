@@ -319,10 +319,14 @@ declaration.
 Without the right declaration, DXC's `IsFullPDB()` on Linux returns values like
 `0x721d1c01` instead of `1`. Only what a library exports can be detected
 (`library=`); the widths of `BOOL` and `LONG` must be declared, because neither
-DXC nor MiniCOM exports anything that tells. Upstream
-could make this unnecessary: DXC has open PRs that make `BOOL` and `LONG` match
-Windows, and MiniCOM could define `BOOL` as `int32_t` and export the `Sys*` and
-`CoTaskMem*` functions.
+DXC nor MiniCOM exports anything that tells. Upstream could make this
+unnecessary: DXC has open PRs that make `BOOL` and `LONG` match Windows
+([#6856](https://github.com/microsoft/DirectXShaderCompiler/pull/6856),
+[#8431](https://github.com/microsoft/DirectXShaderCompiler/pull/8431)), after
+which later DXC versions may need `portacom.WINDOWS`, and MiniCOM has one that
+makes `BOOL` `int32_t` ([#58](https://github.com/forderud/MiniCOM/pull/58)),
+with the Windows BSTR and SAFEARRAY layouts and the `Sys*` and `CoTaskMem*`
+exports to follow.
 
 A key that matches a module's import path (`"my_bindings"`) wins over one that
 matches its namespace, so `portacom_dxc`'s registration doesn't affect your own
@@ -340,6 +344,10 @@ and a later `use_abi()` that would change it raises `RuntimeError`.
 - **[PyWinRT](https://github.com/pywinrt/pywinrt)** generates C++ extensions
   for WinRT. portacom borrows its split between a runtime package and binding
   packages.
+- **[py-winmd](https://github.com/ynkdir/py-winmd)** is a pure-Python port of
+  Microsoft's C++ `.winmd` reader. winmd2py keeps its own smaller reader, and
+  the tests cross-check it against py-winmd on every type of
+  `Windows.Win32.winmd`.
 
 ## Limitations
 
@@ -362,14 +370,18 @@ and a later `use_abi()` that would change it raises `RuntimeError`.
 
 ## Development
 
+Install as in [CONTRIBUTING.md](CONTRIBUTING.md), then:
+
 ```bash
-pip install -e runtime -e generator -e dxc pytest ruff
-python -m pytest -q -rs tests   # -rs says what was skipped and why; see CONTRIBUTING.md
+python -m pytest -q -rs tests   # -rs says what was skipped and why
 ruff check . && ruff format --check .
 ```
 
 CI runs on Windows (64- and 32-bit), Linux (Python 3.10 to 3.13) and macOS,
-and generates and imports every namespace of `Windows.Win32.winmd`:
+generates and imports every namespace of `Windows.Win32.winmd`, and checks
+that winmd2py reads every type of it as py-winmd does (the only signatures it
+can't express are the delegates' `.ctor(object, native int)`, which nothing
+calls):
 - **Windows and Linux** test against the official DXC release.
 - **Linux and macOS** build MiniCOM's test library and drive it from Python.
 - **Anywhere with Docker**, `tests/linux/Dockerfile` runs the Linux job

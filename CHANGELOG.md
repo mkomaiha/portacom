@@ -6,6 +6,12 @@ All notable changes to portacom, winmd2py and portacom-dxc. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `tests/test_reader_reference.py` cross-checks winmd2py's reader against the
+  `winmd` package (py-winmd) on every type of `Windows.Win32.winmd`; `winmd`
+  is a test dependency only.
+
 ## [0.1.0] - 2026-11-08
 
 Initial release.

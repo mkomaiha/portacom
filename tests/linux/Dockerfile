@@ -24,7 +24,7 @@ RUN mkdir -p /opt/winmd && curl -sSfL -o /tmp/metadata.zip "https://api.nuget.or
 ENV WIN32_WINMD=/opt/winmd/Windows.Win32.winmd
 ENV D3D12_WINMD=/opt/winmd/Microsoft.Direct3D.D3D12.winmd
 ENV PIP_ROOT_USER_ACTION=ignore PIP_DISABLE_PIP_VERSION_CHECK=1
-RUN pip install -q pytest ruff
+RUN pip install -q pytest ruff winmd  # winmd: the reference reader of tests/test_reader_reference.py
 WORKDIR /src
 # mount a checkout at /src (read-only is fine): the packages are installed from a copy at run time
 CMD ["sh", "-c", "cp -r runtime generator dxc /tmp && pip install -q /tmp/runtime /tmp/generator /tmp/dxc && python -B -m pytest -q -rs -p no:cacheprovider tests"]
