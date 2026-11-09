@@ -3,8 +3,12 @@
 Install the three packages in editable mode, with the test and lint tools:
 
 ```bash
-pip install -e runtime -e generator -e dxc pytest ruff
+pip install -e runtime -e generator -e dxc pytest ruff winmd
 ```
+
+(`winmd` is the reference .winmd reader that `tests/test_reader_reference.py`
+cross-checks winmd2py against; it needs Python 3.11, and the test is skipped
+without it.)
 
 Before sending a pull request:
 
