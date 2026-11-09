@@ -319,14 +319,17 @@ declaration.
 Without the right declaration, DXC's `IsFullPDB()` on Linux returns values like
 `0x721d1c01` instead of `1`. Only what a library exports can be detected
 (`library=`); the widths of `BOOL` and `LONG` must be declared, because neither
-DXC nor MiniCOM exports anything that tells. Upstream could make this
-unnecessary: DXC has open PRs that make `BOOL` and `LONG` match Windows
+DXC nor MiniCOM exports anything that tells. DXC has open PRs that make
+`BOOL` and `LONG` match Windows
 ([#6856](https://github.com/microsoft/DirectXShaderCompiler/pull/6856),
 [#8431](https://github.com/microsoft/DirectXShaderCompiler/pull/8431)), after
-which later DXC versions may need `portacom.WINDOWS`, and MiniCOM has one that
-makes `BOOL` `int32_t` ([#58](https://github.com/forderud/MiniCOM/pull/58)),
-with the Windows BSTR and SAFEARRAY layouts and the `Sys*` and `CoTaskMem*`
-exports to follow.
+which later DXC versions may need `portacom.WINDOWS`. MiniCOM keeps `BOOL` as
+`long` by design: its `#import`-generated `.tlh` headers, which it also builds
+on other platforms, spell IDL `BOOL` and `long` as C++ `long`, so a narrower
+typedef would split clients from servers
+([#58](https://github.com/forderud/MiniCOM/pull/58)). Interfaces that follow
+MiniCOM's own convention, `int` and `VARIANT_BOOL` in the IDL, need no `BOOL`
+or `LONG` declaration at all.
 
 A key that matches a module's import path (`"my_bindings"`) wins over one that
 matches its namespace, so `portacom_dxc`'s registration doesn't affect your own

@@ -12,6 +12,12 @@ All notable changes to portacom, winmd2py and portacom-dxc. The format follows
   `winmd` package (py-winmd) on every type of `Windows.Win32.winmd`; `winmd`
   is a test dependency only.
 
+### Changed
+
+- README: MiniCOM keeps `BOOL` as `long` (forderud/MiniCOM#58 was declined
+  because its `#import`-generated headers say `long`), so the `BOOL`
+  declaration for MiniCOM libraries stays; `int`/`VARIANT_BOOL` IDL needs none.
+
 ## [0.1.0] - 2026-11-08
 
 Initial release.
