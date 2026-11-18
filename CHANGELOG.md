@@ -17,6 +17,9 @@ All notable changes to portacom, winmd2py and portacom-dxc. The format follows
 - README: MiniCOM keeps `BOOL` as `long` (forderud/MiniCOM#58 was declined
   because its `#import`-generated headers say `long`), so the `BOOL`
   declaration for MiniCOM libraries stays; `int`/`VARIANT_BOOL` IDL needs none.
+- README: link the MiniCOM PRs that give BSTR and SAFEARRAY the Windows layout
+  (forderud/MiniCOM#60, forderud/MiniCOM#61), which `LibraryAllocator` and the
+  `SafeArray*` exports pick up once they land.
 
 ## [0.1.0] - 2026-11-08
 

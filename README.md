@@ -313,8 +313,10 @@ portacom.use_abi(
 
 MiniCOM's is the one in [Your own interfaces](#your-own-interfaces): its BSTRs
 are `wcsdup`'d strings (`PlainAllocator`) until the library exports
-`SysAllocStringLen` & co., which are then used with no change to the
-declaration.
+`SysAllocStringLen` & co. ([forderud/MiniCOM#60](https://github.com/forderud/MiniCOM/pull/60)),
+which are then used with no change to the declaration. MiniCOM's maintainer is
+in favour of the Windows BSTR and SAFEARRAY layouts, likely for AppAPI 7
+([#59](https://github.com/forderud/MiniCOM/issues/59)).
 
 Without the right declaration, DXC's `IsFullPDB()` on Linux returns values like
 `0x721d1c01` instead of `1`. Only what a library exports can be detected
@@ -362,8 +364,9 @@ and a later `use_abi()` that would change it raises `RuntimeError`.
     through their `IRecordInfo` without freeing their memory, as Wine does.
   - SAFEARRAYs use the Windows layout on the ABI's allocator (`malloc`/`free`
     by default, as DXC does), or the library's own `SafeArray*` exports with
-    `library=`. A library with its own array type (MiniCOM) can't exchange
-    them.
+    `library=`. MiniCOM can't exchange them until it uses the Windows layout
+    and exports `SafeArray*`
+    ([forderud/MiniCOM#61](https://github.com/forderud/MiniCOM/pull/61)).
   - A Python object can implement a method that returns a struct by value
     only on x86-64, for a struct of at most 8 bytes whose fields are all
     integers or all floats, or one larger than 16 bytes. Others (9 to 16
